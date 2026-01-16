@@ -1,4 +1,6 @@
 #include "RtPlanReader.h"
+#include "ControlPoint.h"
+#include "Beam.h"
 
 #include <dcmtk/dcmdata/dctk.h>
 #include <dcmtk/dcmdata/dcuid.h>
@@ -37,6 +39,22 @@ static bool getFloat64(DcmItem* ds, const DcmTagKey& key, double& out)
     return false;
 }
 
+static bool getFloat64_3(DcmItem* it, const DcmTagKey& key, double out3[3])
+{
+    if(!it) return false;
+
+    Float64 v0, v1, v2;
+    if(it->findAndGetFloat64(key, v0, 0).good() &&
+       it->findAndGetFloat64(key, v1, 1).good() &&
+       it->findAndGetFloat64(key, v2, 2).good())
+    {
+        out3[0] = v0; out3[1] = v1; out3[2] = v2;
+        return true;
+    }
+
+    return false;
+}
+
 bool RtPlanReader::IsRtPlanSopClass(const char* sopClassUid)
 {
     return sopClassUid && std::string(sopClassUid) == UID_RTPlanStorage;
@@ -64,6 +82,7 @@ bool RtPlanReader::ReadPlan(const std::string& rtplanPath,
                             RtPlanSummary& outPlan,
                             std::string& errorMessage)
 {
+    std::cout << "RtPlanReader\n"; 
     outPlan = RtPlanSummary{};
     outPlan.filePath = rtplanPath;
 
@@ -85,7 +104,7 @@ bool RtPlanReader::ReadPlan(const std::string& rtplanPath,
     }
 
 
-    // Basic identifiers
+    // Basic identifiers --> all of this needs to go into a a struct
     getOFString(ds, DCM_PatientName, outPlan.patientName);
     getOFString(ds, DCM_PatientID, outPlan.patientId);
     getOFString(ds, DCM_StudyInstanceUID, outPlan.studyInstanceUid);
@@ -108,11 +127,39 @@ bool RtPlanReader::ReadPlan(const std::string& rtplanPath,
             {
                 outPlan.numFractionsPlanned = nfx;
             }
+            DcmSequenceOfItems* refBeamSeq = nullptr;
+            if(item0->findAndGetSequence(DCM_ReferencedBeamSequence, refBeamSeq).good() && refBeamSeq)
+            {
+                for(unsigned long rb = 0; rb < refBeamSeq->card(); ++rb)
+                {
+                    DcmItem* rbItem = refBeamSeq->getItem(rb);
+                    if(!rbItem) continue;
+
+                    int refBeamNo = -1;
+                    double mu = -1.0;
+                    double beamDose;
+                    double point[3];
+
+                    
+                    getSint32(rbItem, DCM_ReferencedBeamNumber, refBeamNo);
+                    getFloat64(rbItem, DCM_BeamDose, beamDose);
+                    beamDose *= 100;
+                    getFloat64_3(rbItem, DCM_BeamDoseSpecificationPoint, point);
+
+                    //Beam meterset
+                    getFloat64(rbItem, DCM_BeamMeterset, mu);
+                    std::cout << "Beam " << refBeamNo << " : " << mu << "MU\n";
+                    std::cout << "Beam Dose: " << beamDose << " cGy\n";
+                    std::cout << "Beam specification point: (" << point[0] << ", " << point[1] << ", " << point[2] << ")\n";
+
+                }
+            }
         }
     }
 
-    //Beam Sequence (300A, 00B0)
-    //
+    std::cout << "----------------------------------------------\n";
+    
+
     DcmSequenceOfItems* beamSeq = nullptr;
     if(ds->findAndGetSequence(DCM_BeamSequence, beamSeq).bad() || !beamSeq)
     {
@@ -121,50 +168,16 @@ bool RtPlanReader::ReadPlan(const std::string& rtplanPath,
     }
     
     const unsigned long nBeams = beamSeq->card();
-    outPlan.beams.reserve(static_cast<size_t>(nBeams));
 
-    for(unsigned long i = 0; i < nBeams; ++i)
+    for(unsigned long i = 0; i < nBeams; ++i)       
     {
         DcmItem* beamItem = beamSeq->getItem(i);
         if(!beamItem) continue;
 
-        RtBeamSummary beam;
-
-        getSint32(beamItem, DCM_BeamNumber, beam.beamNumber);
-        getOFString(beamItem, DCM_BeamName, beam.beamName);
-        getOFString(beamItem, DCM_BeamType, beam.beamType);
-        getOFString(beamItem, DCM_RadiationType, beam.radiationType);
-        getOFString(beamItem, DCM_TreatmentDeliveryType, beam.treatmentDeliveryType);
-
-        //ControlPointSequence (300A, 0111)
-        DcmSequenceOfItems* cpSeq = nullptr;
-        if(beamItem->findAndGetSequence(DCM_ControlPointSequence, cpSeq).good() && cpSeq)
-        {
-            beam.numControlPoints = static_cast<int>(cpSeq->card());
-
-            //Optional: sample first and last control point angles
-            auto sampleCP = [&](unsigned long cpIndex)
-            {
-                if(cpIndex >= cpSeq->card()) return;
-                DcmItem* cpItem = cpSeq->getItem(cpIndex);
-                if(!cpItem) return;
-
-                RtControlPointSummary cp;
-                cp.index = static_cast<int>(cpIndex);
-
-                getFloat64(cpItem, DCM_GantryAngle, cp.gantryAngleDeg);
-                getFloat64(cpItem, DCM_BeamLimitingDeviceAngle, cp.collimatorAngleDeg);
-                getFloat64(cpItem, DCM_PatientSupportAngle, cp.couchAngleDeg);
-
-                beam.ControlPoints.push_back(cp);
-            };
-
-            if(cpSeq->card() > 0) sampleCP(0);
-            if(cpSeq->card() > 1) sampleCP(cpSeq->card() - 1);
-        }
-        
-        outPlan.beams.push_back(std::move(beam));
+        Beam b(beamItem);
+        //b.print();
     }
+
     
     return true;
 }

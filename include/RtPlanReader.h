@@ -3,26 +3,6 @@
 #include <string>
 #include <vector>
 
-struct RtControlPointSummary
-{
-    int index = -1;
-    double gantryAngleDeg = 0.0;
-    double collimatorAngleDeg = 0.0;
-    double couchAngleDeg = 0.0;
-};
-
-struct RtBeamSummary
-{
-    int beamNumber = -1;
-    std::string beamName;
-    std::string beamType;       // e.g., STATIC, DYNAMIC
-    std::string radiationType;  // e.g., PHOTON, ELECTRON
-    std::string treatmentDeliveryType;  // e.g., TREATMENT, SETUP
-
-    int numControlPoints = 0;
-    std::vector<RtControlPointSummary> ControlPoints;   // optional sampling
-};
-
 struct RtPlanSummary
 {
     std::string filePath;
@@ -39,9 +19,21 @@ struct RtPlanSummary
 
     int numFractionsPlanned = -1;
     
-    std::vector<RtBeamSummary> beams;
+    std::vector<float> isocenter;           // TODO: lets assume single isocenter and proceed for now.
 
 };
+
+struct DoseReferencePrescription {
+    int doseReferenceNumber = -1;         // (300A,0012)
+    std::string doseReferenceType;         // (300A,0020) e.g. TARGET
+    std::string doseReferenceStructureType;// (300A,0014) POINT/VOLUME/COORDINATES
+    int referencedRoiNumber = -1;          // (300A,0022) if present
+    double targetPrescriptionDoseGy = -1;  // (300A,0026) if present
+
+    bool hasPointCoordinates = false;
+    double refPointXYZ_mm[3] = {0,0,0};    // (300A,0018) if present
+};
+
 
 class RtPlanReader
 {
