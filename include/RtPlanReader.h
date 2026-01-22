@@ -1,9 +1,12 @@
 #pragma once
 
+
 #include <string>
 #include <vector>
 
-struct RtPlanSummary
+#include "Beam.h"
+
+struct Plan
 {
     std::string filePath;
 
@@ -20,6 +23,8 @@ struct RtPlanSummary
     int numFractionsPlanned = -1;
     
     std::vector<float> isocenter;           // TODO: lets assume single isocenter and proceed for now.
+
+    std::vector<Beam> beams;
 
 };
 
@@ -40,7 +45,7 @@ class RtPlanReader
 public:
     // Throws no exceptions; return false + sets errorMessage on failure
     static bool ReadPlan(const std::string& rtplanPath,
-                         RtPlanSummary& outPlan,
+                         Plan& outPlan,
                          std::string& errorMessage);
 
 private:

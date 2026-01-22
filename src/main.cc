@@ -80,7 +80,7 @@ static void readDicomFile(
               */
     if(sopClass == UID_RTPlanStorage)
     {
-        RtPlanSummary plan;
+        Plan plan;
         std::string err;
         if(!RtPlanReader::ReadPlan(path.string(), plan, err))
         {

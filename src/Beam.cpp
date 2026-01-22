@@ -129,13 +129,30 @@ void Beam::print(std::ostream& os) const
 
     os << "  " << std::left << std::setw(26) << "ControlPoints" << ": " << controlPoints.size() << "\n";
 
-    if(beamMetersetMU) os << "  BeamMeterset (MU): " << *beamMetersetMU << "\n";
-    if(beamDoseGy)     os << "  BeamDose (Gy): " << *beamDoseGy << "\n";
-    if(beamDoseSpecPointMm) {
+    if(beamMetersetMU) os << "  BeamMeterset (MU): " << beamMetersetMU << "\n";
+    if(beamDoseGy)     os << "  BeamDose (Gy): " << beamDoseGy << "\n";
+    if(true) {
         os << "  BeamDoseSpecPoint (mm): ["
-           << (*beamDoseSpecPointMm)[0] << ", "
-           << (*beamDoseSpecPointMm)[1] << ", "
-           << (*beamDoseSpecPointMm)[2] << "]\n";
+           << (beamDoseSpecPointMm)[0] << ", "
+           << (beamDoseSpecPointMm)[1] << ", "
+           << (beamDoseSpecPointMm)[2] << "]\n";
     }
 }
 
+void Beam::storeFractionSequence(DcmItem* item)
+{
+    
+    int refBeamNo;
+    getSint32(item, DCM_ReferencedBeamNumber, refBeamNo);
+    if(refBeamNo != beamNumber)
+    {
+        std::cout << "Beam Number " << beamNumber
+                  << "Fraction group beam : " << refBeamNo;
+
+        return;
+    }
+
+    getFloat64(item, DCM_BeamMeterset, beamMetersetMU);
+    getFloat64(item, DCM_BeamDose, beamDoseGy);
+    getFloat64_3(item, DCM_BeamDoseSpecificationPoint, beamDoseSpecPointMm);
+}

@@ -35,13 +35,17 @@ struct Beam
     std::vector<ControlPoint> controlPoints;
 
     // Populated from FractionGroupSequence/ReferencedBeamSequence (later)
-    std::optional<double> beamMetersetMU;                // (300A,0086)
-    std::optional<double> beamDoseGy;                    // (300A,0084)
-    std::optional<std::array<double,3>> beamDoseSpecPointMm; // (300A,0082)
+    double beamMetersetMU;                // (300A,0086)
+    double beamDoseGy;                    // (300A,0084)
+    std::array<double,3> beamDoseSpecPointMm; // (300A,0082)
 
     Beam() = default;
     explicit Beam(DcmItem* beamItem);
 
     void print(std::ostream& os = std::cout) const;
+
+    // TODO: store MU, Beam dose and dose spec point
+    void storeFractionSequence(DcmItem* item); 
+    
 };
 

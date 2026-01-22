@@ -79,11 +79,10 @@ bool RtPlanReader::GetFloat64(void* dataset, const unsigned short group, const u
 }
 
 bool RtPlanReader::ReadPlan(const std::string& rtplanPath,
-                            RtPlanSummary& outPlan,
+                            Plan& outPlan,
                             std::string& errorMessage)
 {
-    std::cout << "RtPlanReader\n"; 
-    outPlan = RtPlanSummary{};
+    outPlan = Plan{};
     outPlan.filePath = rtplanPath;
 
     DcmFileFormat ff;
@@ -116,6 +115,27 @@ bool RtPlanReader::ReadPlan(const std::string& rtplanPath,
     getOFString(ds, DCM_RTPlanName, outPlan.rtPlanName);
 
     // FractionGroupSequence (300A, 0070)
+
+    DcmSequenceOfItems* beamSeq = nullptr;
+    if(ds->findAndGetSequence(DCM_BeamSequence, beamSeq).bad() || !beamSeq)
+    {
+        // some plans (e.g., setup only exports) may still have beams, but if not present, that's okay
+        return true;
+    }
+    
+    const unsigned long nBeams = beamSeq->card();
+    
+
+    for(unsigned long i = 0; i < nBeams; ++i)       
+    {
+        DcmItem* beamItem = beamSeq->getItem(i);
+        if(!beamItem) continue;
+
+        Beam b(beamItem);
+        outPlan.beams.push_back(b);
+        //b.print();
+    }
+
     DcmSequenceOfItems* seq = nullptr;
     if(ds->findAndGetSequence(DCM_FractionGroupSequence, seq).good() && seq && seq->card() > 0)
     {
@@ -135,23 +155,7 @@ bool RtPlanReader::ReadPlan(const std::string& rtplanPath,
                     DcmItem* rbItem = refBeamSeq->getItem(rb);
                     if(!rbItem) continue;
 
-                    int refBeamNo = -1;
-                    double mu = -1.0;
-                    double beamDose;
-                    double point[3];
-
-                    
-                    getSint32(rbItem, DCM_ReferencedBeamNumber, refBeamNo);
-                    getFloat64(rbItem, DCM_BeamDose, beamDose);
-                    beamDose *= 100;
-                    getFloat64_3(rbItem, DCM_BeamDoseSpecificationPoint, point);
-
-                    //Beam meterset
-                    getFloat64(rbItem, DCM_BeamMeterset, mu);
-                    std::cout << "Beam " << refBeamNo << " : " << mu << "MU\n";
-                    std::cout << "Beam Dose: " << beamDose << " cGy\n";
-                    std::cout << "Beam specification point: (" << point[0] << ", " << point[1] << ", " << point[2] << ")\n";
-
+                    outPlan.beams[rb].storeFractionSequence(rbItem);
                 }
             }
         }
@@ -159,25 +163,10 @@ bool RtPlanReader::ReadPlan(const std::string& rtplanPath,
 
     std::cout << "----------------------------------------------\n";
     
-
-    DcmSequenceOfItems* beamSeq = nullptr;
-    if(ds->findAndGetSequence(DCM_BeamSequence, beamSeq).bad() || !beamSeq)
-    {
-        // some plans (e.g., setup only exports) may still have beams, but if not present, that's okay
-        return true;
-    }
     
-    const unsigned long nBeams = beamSeq->card();
-
-    for(unsigned long i = 0; i < nBeams; ++i)       
-    {
-        DcmItem* beamItem = beamSeq->getItem(i);
-        if(!beamItem) continue;
-
-        Beam b(beamItem);
-        //b.print();
-    }
-
+    // TODO: completed beams and control points,
+    // now move to storing all parts of the plan
+    // also beam weighting needs to organized
     
     return true;
 }
