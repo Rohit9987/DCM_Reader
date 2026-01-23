@@ -1,10 +1,12 @@
 #include "RtPlanReader.h"
 #include "ControlPoint.h"
-#include "Beam.h"
 
 #include <dcmtk/dcmdata/dctk.h>
 #include <dcmtk/dcmdata/dcuid.h>
 #include <dcmtk/dcmdata/dcdeftag.h>
+
+
+#include "Beam.h"
 
 #include <iostream>
 

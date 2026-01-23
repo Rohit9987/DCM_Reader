@@ -4,29 +4,8 @@
 #include <string>
 #include <vector>
 
-#include "Beam.h"
+#include "Plan.h"
 
-struct Plan
-{
-    std::string filePath;
-
-    std::string patientName;
-    std::string patientId;
-
-    std::string studyInstanceUid;
-    std::string seriesInstanceUid;
-    std::string sopInstanceUid;
-
-    std::string rtPlanLabel;
-    std::string rtPlanName;
-
-    int numFractionsPlanned = -1;
-    
-    std::vector<float> isocenter;           // TODO: lets assume single isocenter and proceed for now.
-
-    std::vector<Beam> beams;
-
-};
 
 struct DoseReferencePrescription {
     int doseReferenceNumber = -1;         // (300A,0012)
