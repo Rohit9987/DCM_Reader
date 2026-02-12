@@ -6,7 +6,7 @@
 #include <optional>
 #include <string>
 
-#include "RtPlanReader.h"
+#include "Plan.h"
 
 namespace fs = std::filesystem;
 
@@ -80,12 +80,7 @@ static void readDicomFile(
               */
     if(sopClass == UID_RTPlanStorage)
     {
-        Plan plan;
-        std::string err;
-        if(!RtPlanReader::ReadPlan(path.string(), plan, err))
-        {
-            std::cerr << "Failed RTPLAN parse: " << err << "\n";
-        }
+        Plan plan(ds);
     }
 }
 

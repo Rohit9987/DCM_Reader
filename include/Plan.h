@@ -5,10 +5,15 @@
 #include <vector>
 #include <array>
 
+#include <dcmtk/dcmdata/dctk.h>
+
 #include "Beam.h"
 
 struct Plan
 {
+    Plan() = default;
+    explicit Plan(DcmDataset* ds);
+
     // Provenance
     std::string filePath;
 
@@ -51,5 +56,8 @@ struct Plan
 
     // Convenience totals
     std::optional<double> totalPlannedMetersetMU; // sum of beamMetersetMU
+    
+    void print(std::ostream& os = std::cout) const;
+
 };
 
