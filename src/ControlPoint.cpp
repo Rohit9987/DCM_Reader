@@ -2,109 +2,38 @@
 
 #include <dcmtk/dcmdata/dcdeftag.h>
 #include <algorithm> 
-
-
-
-// ---- Small helpers that work with DcmItem* (dataset OR sequence items) ----
-static bool getOFString(DcmItem* it, const DcmTagKey& key, std::string& out)
-{
-    if(!it) return false;
-    OFString s;
-    if(it->findAndGetOFString(key, s).good()) { out = s.c_str(); return true; }
-    return false;
-}
-
-static bool getFloat64(DcmItem* it, const DcmTagKey& key, double& out, unsigned long pos = 0)
-{
-    if(!it) return false;
-    Float64 v;
-    if(it->findAndGetFloat64(key, v, pos).good()) { out = (double)v; return true; }
-    return false;
-}
-
-static bool getSint32(DcmItem* it, const DcmTagKey& key, int& out, unsigned long pos = 0)
-{
-    if(!it) return false;
-    Sint32 v;
-    if(it->findAndGetSint32(key, v, pos).good()) { out = (int)v; return true; }
-    return false;
-}
-
-static bool getFloat64_3(DcmItem* it, const DcmTagKey& key, std::array<double,3>& out3)
-{
-    double v0, v1, v2;
-    if(getFloat64(it, key, v0, 0) && getFloat64(it, key, v1, 1) && getFloat64(it, key, v2, 2)) {
-        out3 = {v0, v1, v2};
-        return true;
-    }
-    return false;
-}
-
-static bool getFloat64_2(DcmItem* it, const DcmTagKey& key, std::array<double,2>& out2)
-{
-    double v0, v1;
-    if(getFloat64(it, key, v0, 0) && getFloat64(it, key, v1, 1)) {
-        out2 = {v0, v1};
-        return true;
-    }
-    return false;
-}
-
-// Reads LeafJawPositions (300A,011C) as a vector<double>
-static bool getFloat64Vector(DcmItem* it, const DcmTagKey& key, std::vector<double>& out)
-{
-    if(!it) return false;
-
-    DcmElement* elem = nullptr;
-    if(it->findAndGetElement(key, elem).bad() || !elem)
-        return false;
-
-    const unsigned long vm = elem->getVM();
-    if(vm == 0) return false;
-
-    out.clear();
-    out.reserve(static_cast<size_t>(vm));
-
-    for(unsigned long i = 0; i < vm; ++i)
-    {
-        Float64 v;
-        if(elem->getFloat64(v, i).bad())  // read i-th component directly from the element
-            return false;
-
-        out.push_back(static_cast<double>(v));
-    }
-    return true;
-}
+#include "dicom/DicomUtils.h"
 
 ControlPoint::ControlPoint(DcmItem* cpItem)
 {
+    using namespace dicom;
     leafPairs = 60;
 
-    getSint32(cpItem, DCM_ControlPointIndex, cpIndex);
-    getFloat64(cpItem, DCM_CumulativeMetersetWeight, cumulativeMetersetWeight);
+    getInt(cpItem, DCM_ControlPointIndex, cpIndex);
+    getDouble(cpItem, DCM_CumulativeMetersetWeight, cumulativeMetersetWeight);
 
     //TODO: gantryrotationDirection
-    getFloat64(cpItem, DCM_GantryAngle, gantryAngleDeg);
+    getDouble(cpItem, DCM_GantryAngle, gantryAngleDeg);
     {
     std::string s;
-    if(getOFString(cpItem, DCM_GantryRotationDirection, s))
+    if(getString(cpItem, DCM_GantryRotationDirection, s))
             gantryRotationDirection=s;
     }
-    getFloat64(cpItem, DCM_BeamLimitingDeviceAngle, collimatorAngleDeg);
-    getFloat64(cpItem, DCM_PatientSupportAngle, couchAngleDeg);
+    getDouble(cpItem, DCM_BeamLimitingDeviceAngle, collimatorAngleDeg);
+    getDouble(cpItem, DCM_PatientSupportAngle, couchAngleDeg);
 
     {
         std::array<double, 3> iso;
-        if(getFloat64_3(cpItem, DCM_IsocenterPosition, iso))
+        if(getDouble3(cpItem, DCM_IsocenterPosition, iso))
             isocenterMm = iso;
 
         double ssd;
-        if(getFloat64(cpItem, DCM_SourceToSurfaceDistance, ssd))
+        if(getDouble(cpItem, DCM_SourceToSurfaceDistance, ssd))
             ssdMm = ssd;
     }
     
-    getFloat64(cpItem, DCM_NominalBeamEnergy, nominalEnergyMV);
-    getFloat64(cpItem, DCM_DoseRateSet, doseRate);
+    getDouble(cpItem, DCM_NominalBeamEnergy, nominalEnergyMV);
+    getDouble(cpItem, DCM_DoseRateSet, doseRate);
 
     DcmSequenceOfItems* posSeq = nullptr;
     if(cpItem && cpItem->findAndGetSequence(DCM_BeamLimitingDevicePositionSequence, posSeq).good() && posSeq)
@@ -115,10 +44,10 @@ ControlPoint::ControlPoint(DcmItem* cpItem)
             if(!posItem) continue;
 
             std::string devType;
-            if(!getOFString(posItem, DCM_RTBeamLimitingDeviceType, devType)) continue;
+            if(!getString(posItem, DCM_RTBeamLimitingDeviceType, devType)) continue;
 
             std::vector<double> vals;
-            if(!getFloat64Vector(posItem, DCM_LeafJawPositions, vals)) continue;
+            if(!getDoubleVector(posItem, DCM_LeafJawPositions, vals)) continue;
 
             if(devType == "ASYMX" && vals.size() >= 2)
             {

@@ -2,70 +2,39 @@
 
 #include <iomanip>
 
-// ---- helpers (same pattern as ControlPoint.cpp) ----
-static bool getOFString(DcmItem* it, const DcmTagKey& key, std::string& out)
-{
-    if(!it) return false;
-    OFString s;
-    if(it->findAndGetOFString(key, s).good()) { out = s.c_str(); return true; }
-    return false;
-}
+#include "dicom/DicomUtils.h"
 
-static bool getFloat64(DcmItem* it, const DcmTagKey& key, double& out, unsigned long pos = 0)
-{
-    if(!it) return false;
-    Float64 v;
-    if(it->findAndGetFloat64(key, v, pos).good()) { out = (double)v; return true; }
-    return false;
-}
-
-static bool getSint32(DcmItem* it, const DcmTagKey& key, int& out, unsigned long pos = 0)
-{
-    if(!it) return false;
-    Sint32 v;
-    if(it->findAndGetSint32(key, v, pos).good()) { out = (int)v; return true; }
-    return false;
-}
-
-static bool getFloat64_3(DcmItem* it, const DcmTagKey& key, std::array<double,3>& out3)
-{
-    double v0, v1, v2;
-    if(getFloat64(it, key, v0, 0) && getFloat64(it, key, v1, 1) && getFloat64(it, key, v2, 2)) {
-        out3 = {v0, v1, v2};
-        return true;
-    }
-    return false;
-}
 
 // ---- constructor ----
 Beam::Beam(DcmItem* beamItem)
 {
+    using namespace dicom;
     leafPairs = 60;
 
     // Identity
-    getSint32(beamItem, DCM_BeamNumber, beamNumber);
+    getInt(beamItem, DCM_BeamNumber, beamNumber);
 
     {
         std::string s;
-        if(getOFString(beamItem, DCM_BeamName, s)) beamName = s;
-        if(getOFString(beamItem, DCM_BeamType, s)) beamType = s;
-        if(getOFString(beamItem, DCM_RadiationType, s)) radiationType = s;
-        if(getOFString(beamItem, DCM_TreatmentDeliveryType, s)) treatmentDeliveryType = s;
+        if(getString(beamItem, DCM_BeamName, s)) beamName = s;
+        if(getString(beamItem, DCM_BeamType, s)) beamType = s;
+        if(getString(beamItem, DCM_RadiationType, s)) radiationType = s;
+        if(getString(beamItem, DCM_TreatmentDeliveryType, s)) treatmentDeliveryType = s;
     }
 
     // Machine / SAD / dosimeter unit
     {
         std::string s;
-        if(getOFString(beamItem, DCM_TreatmentMachineName, s)) treatmentMachineName = s;
-        if(getOFString(beamItem, DCM_PrimaryDosimeterUnit, s)) primaryDosimeterUnit = s;
+        if(getString(beamItem, DCM_TreatmentMachineName, s)) treatmentMachineName = s;
+        if(getString(beamItem, DCM_PrimaryDosimeterUnit, s)) primaryDosimeterUnit = s;
 
         double d;
-        if(getFloat64(beamItem, DCM_SourceAxisDistance, d)) sourceAxisDistanceMm = d;
-        if(getFloat64(beamItem, DCM_FinalCumulativeMetersetWeight, d)) finalCumulativeMetersetWeight = d;
+        if(getDouble(beamItem, DCM_SourceAxisDistance, d)) sourceAxisDistanceMm = d;
+        if(getDouble(beamItem, DCM_FinalCumulativeMetersetWeight, d)) finalCumulativeMetersetWeight = d;
     }
 
     // Number of CPs
-    getSint32(beamItem, DCM_NumberOfControlPoints, numberOfControlPoints);
+    getInt(beamItem, DCM_NumberOfControlPoints, numberOfControlPoints);
 
     // Parse ControlPointSequence
     DcmSequenceOfItems* cpSeq = nullptr;
@@ -141,9 +110,9 @@ void Beam::print(std::ostream& os) const
 
 void Beam::storeFractionSequence(DcmItem* item)
 {
-    
+    using namespace dicom; 
     int refBeamNo;
-    getSint32(item, DCM_ReferencedBeamNumber, refBeamNo);
+    getInt(item, DCM_ReferencedBeamNumber, refBeamNo);
     if(refBeamNo != beamNumber)
     {
         std::cout << "Beam Number " << beamNumber
@@ -152,7 +121,7 @@ void Beam::storeFractionSequence(DcmItem* item)
         return;
     }
 
-    getFloat64(item, DCM_BeamMeterset, beamMetersetMU);
-    getFloat64(item, DCM_BeamDose, beamDoseGy);
-    getFloat64_3(item, DCM_BeamDoseSpecificationPoint, beamDoseSpecPointMm);
+    getDouble(item, DCM_BeamMeterset, beamMetersetMU);
+    getDouble(item, DCM_BeamDose, beamDoseGy);
+    getDouble3(item, DCM_BeamDoseSpecificationPoint, beamDoseSpecPointMm);
 }

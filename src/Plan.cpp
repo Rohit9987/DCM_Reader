@@ -3,79 +3,41 @@
 #include <iostream>
 #include <map>
 #include <iomanip>
+#include "dicom/DicomUtils.h"
 
-
-// ---------- helpers ----------
-template <typename T>
-static bool getOFString(T* ds, const DcmTagKey& key, std::string& out)
-{
-    if(!ds) return false;
-    OFString s;
-    if(ds->findAndGetOFString(key, s).good()) {
-        out = s.c_str();
-        return true;
-    }
-    return false;
-}
-
-template <typename T>
-static bool getSint32(T* ds, const DcmTagKey& key, int& out)
-{
-    if(!ds) return false;
-    Sint32 v;
-    if(ds->findAndGetSint32(key, v).good()) {
-        out = (int)v;
-        return true;
-    }
-    return false;
-}
-
-static bool getFloat64_3(DcmItem* it, const DcmTagKey& key, std::array<double,3>& out3)
-{
-    double a,b,c;
-    if(it->findAndGetFloat64(key,a,0).good() &&
-       it->findAndGetFloat64(key,b,1).good() &&
-       it->findAndGetFloat64(key,c,2).good())
-    {
-        out3 = {a,b,c};
-        return true;
-    }
-    return false;
-}
-
-//TODO:
 Plan::Plan(DcmDataset* ds)
 {
-    std::cout <<"Hello\n";
     if(!ds)
         return;
 
-    std::cout <<"Hello\n";
+    using namespace dicom;
+
+
     // --- Patient ---
-    getOFString(ds, DCM_PatientName, patientName);
-    getOFString(ds, DCM_PatientID, patientId);
+    getString(ds, DCM_PatientName, patientName);
+    getString(ds, DCM_PatientID, patientId);
 
     // --- UIDs ---
-    getOFString(ds, DCM_StudyInstanceUID, studyInstanceUid);
-    getOFString(ds, DCM_SeriesInstanceUID, seriesInstanceUid);
-    getOFString(ds, DCM_SOPInstanceUID, sopInstanceUid);
-    getOFString(ds, DCM_FrameOfReferenceUID, frameOfReferenceUid);
+    getString(ds, DCM_StudyInstanceUID, studyInstanceUid);
+    getString(ds, DCM_SeriesInstanceUID, seriesInstanceUid);
+    getString(ds, DCM_SOPInstanceUID, sopInstanceUid);
+    getString(ds, DCM_FrameOfReferenceUID, frameOfReferenceUid);
 
     // --- Plan identity ---
-    getOFString(ds, DCM_RTPlanLabel, rtPlanLabel);
-    getOFString(ds, DCM_RTPlanName, rtPlanName);
+    getString(ds, DCM_RTPlanLabel, rtPlanLabel);
+    getString(ds, DCM_RTPlanName, rtPlanName);
 
     {
         std::string s;
-        if(getOFString(ds, DCM_RTPlanDescription, s))
+        if(getString(ds, DCM_RTPlanDescription, s))
             rtPlanDescription = s;
-        if(getOFString(ds, DCM_RTPlanGeometry, s))
+        if(getString(ds, DCM_RTPlanGeometry, s))
             rtPlanGeometry = s;
-        if(getOFString(ds, DCM_ApprovalStatus, s))
+        if(getString(ds, DCM_ApprovalStatus, s))
             approvalStatus = s;
-        if(getOFString(ds, DCM_RTPlanDate, s))
+        if(getString(ds, DCM_RTPlanDate, s))
             rtPlanDate = s;
-        if(getOFString(ds, DCM_RTPlanTime, s))
+        if(getString(ds, DCM_RTPlanTime, s))
             rtPlanTime = s;
     }
 
@@ -85,7 +47,7 @@ Plan::Plan(DcmDataset* ds)
         {
             DcmItem* item = seq->getItem(0);
             std::string uid;
-            if(item && getOFString(item, DCM_ReferencedSOPInstanceUID, uid))
+            if(item && getString(item, DCM_ReferencedSOPInstanceUID, uid))
                 referencedStructSetSOPInstanceUid = uid;
         }
     }
@@ -107,8 +69,8 @@ Plan::Plan(DcmDataset* ds)
             DcmItem* fgItem = fgSeq->getItem(0);
             if(fgItem)
             {
-                getSint32(fgItem, DCM_FractionGroupNumber, fractionGroupNumber);
-                getSint32(fgItem, DCM_NumberOfFractionsPlanned, numFractionsPlanned);
+                getInt(fgItem, DCM_FractionGroupNumber, fractionGroupNumber);
+                getInt(fgItem, DCM_NumberOfFractionsPlanned, numFractionsPlanned);
 
                 DcmSequenceOfItems* refBeamSeq = nullptr;
                 if(fgItem->findAndGetSequence(DCM_ReferencedBeamSequence, refBeamSeq).good() && refBeamSeq)
@@ -124,7 +86,7 @@ Plan::Plan(DcmDataset* ds)
                         FGBeamInfo info;
                         rb->findAndGetFloat64(DCM_BeamMeterset, info.mu);
                         rb->findAndGetFloat64(DCM_BeamDose, info.dose);
-                        info.hasSpec = getFloat64_3(rb, DCM_BeamDoseSpecificationPoint, info.specPoint);
+                        info.hasSpec = getDouble3(rb, DCM_BeamDoseSpecificationPoint, info.specPoint);
 
                         fgInfo[beamNum] = info;
 
@@ -168,10 +130,7 @@ Plan::Plan(DcmDataset* ds)
     // ---- Primary isocenter (convenience) ----
     if(!beams.empty() && !beams.front().controlPoints.empty())
         primaryIsocenterMm = beams.front().controlPoints.front().isocenterMm;
-
-    print();
 }
-
 
 
 
